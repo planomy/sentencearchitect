@@ -3,12 +3,667 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Sentence Architect</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM (Removed crossorigin for better local file support in Safari) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-serif {
+            font-family: 'Merriweather', serif;
+        }
+        
+        /* Custom Scrollbar for cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Animation Classes */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
 </head>
 <body>
-    <div class="text-lg">This is the stem text.</div>
-    <div class="text-sm">p1: silence</div>
-    <div class="text-sm">p2: shattered</div>
+    <div id="root">
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; color: #64748b; font-family: sans-serif;">
+            Loading Sentence Architect...<br/>
+            (If this stays on screen, ensure you have an internet connection to load the libraries)
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- Icons Components (Inline SVGs) ---
+        const Icon = ({ path, className }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="24" 
+                height="24" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className}
+            >
+                {path}
+            </svg>
+        );
+
+        const Icons = {
+            Brain: (props) => <Icon {...props} path={<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-4A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-4A2.5 2.5 0 0 0 14.5 2Z" />} />,
+            Layers: (props) => <Icon {...props} path={<><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></>} />,
+            ChevronRight: (props) => <Icon {...props} path={<path d="m9 18 6-6-6-6"/>} />,
+            RefreshCw: (props) => <Icon {...props} path={<><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></>} />,
+            PenTool: (props) => <Icon {...props} path={<path d="m12 19 7-7 3 3-7 7-3-3z M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z M2 2l7.586 7.586 M11 11l-4 4 M13 19l-2 2-2-2 2-2z"/>} />,
+            GraduationCap: (props) => <Icon {...props} path={<path d="M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5"/>} />,
+            Eye: (props) => <Icon {...props} path={<><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></>} />,
+            EyeOff: (props) => <Icon {...props} path={<><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09"/><line x1="2" x2="22" y1="2" y2="22"/></>} />,
+            Mail: (props) => <Icon {...props} path={<><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>} />,
+            Moon: (props) => <Icon {...props} path={<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>} />,
+            Sun: (props) => <Icon {...props} path={<><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>} />,
+            Dices: (props) => <Icon {...props} path={<><rect width="12" height="12" x="2" y="10" rx="2" ry="2"/><path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6"/><path d="M6 18h.01"/><path d="M10 14h.01"/><path d="M15 6h.01"/><path d="M18 9h.01"/></>} />
+        };
+
+        // --- Sub Component: Card (Defined outside to prevent Reference Errors and re-renders) ---
+        const Card = ({ item, level, type, index, isRevealed, toggleModel, darkMode }) => {
+            const isKS3 = type === 'ks3';
+            
+            // Dynamic styling based on KS3/4 and Dark/Light Mode
+            const accentColor = isKS3 
+                ? (darkMode ? 'border-l-emerald-600' : 'border-l-emerald-400') 
+                : (darkMode ? 'border-l-blue-600' : 'border-l-blue-400');
+                
+            const bgBase = darkMode ? 'bg-slate-800' : 'bg-slate-50';
+            const textMain = darkMode ? 'text-slate-200' : 'text-slate-800';
+            const textMuted = darkMode ? 'text-slate-500' : 'text-slate-400';
+            const borderSep = darkMode ? 'border-slate-700' : 'border-slate-200/60';
+            
+            const pillColor = isKS3 
+                ? (darkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-800')
+                : (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800');
+                
+            const pillColor2 = isKS3 
+                ? (darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-200 text-emerald-900')
+                : (darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-200 text-blue-900');
+
+            const modelBg = darkMode ? 'bg-indigo-950/50 border-indigo-900' : 'bg-indigo-50 border-indigo-100';
+            const modelText = darkMode ? 'text-indigo-300' : 'text-indigo-900';
+
+            return (
+                <div className={`relative ${bgBase} border-l-4 ${accentColor} p-5 rounded-r-lg transition-all duration-300 hover:shadow-md group`}>
+                    <span className={`absolute top-2 right-2 ${textMuted} text-xs font-mono font-bold opacity-60`}>#{index}</span>
+                    
+                    {/* Stem */}
+                    <div className="mb-3 pr-8">
+                        <p className={`text-2xl md:text-3xl font-serif ${textMain} leading-snug font-medium`}>
+                            {item.stem} ...
+                        </p>
+                    </div>
+
+                    {/* Constraints Container */}
+                    {(level >= 2) && (
+                        <div className={`mt-3 pt-3 border-t ${borderSep} flex flex-wrap gap-2 items-center`}>
+                            <span className={`text-xs uppercase font-bold ${textMuted}`}>Include:</span>
+                            
+                            <span className={`text-lg font-bold px-3 py-1 rounded ${pillColor} flex items-center gap-1`}>
+                                <Icons.ChevronRight className="w-4 h-4 opacity-50" /> {item.p1}
+                            </span>
+
+                            {level >= 3 && (
+                                <span className={`text-lg font-bold px-3 py-1 rounded ${pillColor2} flex items-center gap-1`}>
+                                    <Icons.ChevronRight className="w-4 h-4 opacity-50" /> {item.p2}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Model Button */}
+                    <button 
+                        onClick={toggleModel}
+                        className={`absolute bottom-2 right-2 p-2 rounded-full transition-colors ${darkMode ? 'text-slate-500 hover:text-indigo-400 hover:bg-indigo-900/30' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                        title="Show Model Answer"
+                    >
+                        {isRevealed ? <Icons.EyeOff className="w-5 h-5" /> : <Icons.Eye className="w-5 h-5" />}
+                    </button>
+
+                    {/* Revealed Model */}
+                    {isRevealed && (
+                        <div className={`mt-4 ${modelBg} p-4 rounded-lg border animate-fadeIn`}>
+                            <p className={`text-xl ${modelText} italic font-serif leading-relaxed`}>
+                                "{item.model}"
+                            </p>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const SentenceArchitect = () => {
+            const [level, setLevel] = useState(1);
+            const [setIndex, setSetIndex] = useState(0);
+            const [revealedModels, setRevealedModels] = useState({});
+            const [darkMode, setDarkMode] = useState(false);
+            const [shuffledIndices, setShuffledIndices] = useState([]);
+            const [isShuffled, setIsShuffled] = useState(false);
+
+            // --- DATA BANKS (20 Sets / 100 Items) ---
+            
+            // KS3 (Years 7-9): Focus on Creative, Descriptive, Gothic, Adventure, Dystopian
+            const ks3Data = [
+                // Week 1
+                { id: 'k3_1', stem: "Throughout the abandoned corridor,", p1: "silence", p2: "shattered", model: "Throughout the abandoned corridor, a heavy silence lingered until it was abruptly shattered by the sound of breaking glass." },
+                { id: 'k3_2', stem: "Beneath the surface of the lake,", p1: "reflection", p2: "distorted", model: "Beneath the surface of the lake, my own reflection appeared twisted and distorted by the rippling currents." },
+                { id: 'k3_3', stem: "Gasping for breath,", p1: "panic", p2: "relentless", model: "Gasping for breath, I fought to control the panic that rose within me like a relentless tide." },
+                { id: 'k3_4', stem: "Although the door was unlocked,", p1: "hesitation", p2: "threshold", model: "Although the door was unlocked, a sudden hesitation rooted me to the spot as I stood trembling on the threshold." },
+                { id: 'k3_5', stem: "Never had the sky looked so,", p1: "omen", p2: "crimson", model: "Never had the sky looked so menacing, painting the horizon in a deep crimson that felt like a dark omen." },
+                
+                // Week 2
+                { id: 'k3_6', stem: "Twisting through the narrow alley,", p1: "shadows", p2: "pursuit", model: "Twisting through the narrow alley, I tried to lose the shadows that seemed to be in constant pursuit of my every step." },
+                { id: 'k3_7', stem: "Upon discovering the ancient map,", p1: "destiny", p2: "crumbling", model: "Upon discovering the ancient map, he realized his destiny was tied to a crumbling empire long forgotten by history." },
+                { id: 'k3_8', stem: "Without looking back,", p1: "regret", p2: "permanent", model: "Without looking back, she walked away from the house, leaving her regret behind as a permanent scar on her memory." },
+                { id: 'k3_9', stem: "Emerging from the fog,", p1: "silhouette", p2: "menacing", model: "Emerging from the fog, a tall silhouette loomed over us, casting a menacing shadow across the damp pavement." },
+                { id: 'k3_10', stem: "Despite the warning signs,", p1: "curiosity", p2: "consequences", model: "Despite the warning signs posted on the fence, his curiosity drove him forward, ignoring the potential consequences." },
+
+                // Week 3
+                { id: 'k3_11', stem: "Before the clock struck midnight,", p1: "anticipation", p2: "electric", model: "Before the clock struck midnight, the air in the room grew heavy with an anticipation that felt almost electric." },
+                { id: 'k3_12', stem: "Buried under years of dust,", p1: "memory", p2: "forgotten", model: "Buried under years of dust, the old photograph revived a memory that had been long forgotten." },
+                { id: 'k3_13', stem: "While the city slept,", p1: "secrets", p2: "unseen", model: "While the city slept, the dark streets whispered secrets to the unseen watchers hidden in the alleyways." },
+                { id: 'k3_14', stem: "Driven by a sudden impulse,", p1: "risk", p2: "calculation", model: "Driven by a sudden impulse, she took the risk without any careful calculation of the danger involved." },
+                { id: 'k3_15', stem: "Beyond the safety of the wall,", p1: "wilderness", p2: "lawless", model: "Beyond the safety of the wall, the forest stretched out as a lawless wilderness where only the strong survived." },
+
+                // Week 4
+                { id: 'k3_16', stem: "Encased in ice,", p1: "time", p2: "frozen", model: "Encased in ice, the ancient creature looked as if time itself had been frozen in that moment." },
+                { id: 'k3_17', stem: "Whistling through the cracks,", p1: "wind", p2: "ghostly", model: "Whistling through the cracks in the floorboards, the wind sounded like a ghostly choir mourning the dead." },
+                { id: 'k3_18', stem: "Armed only with a flashlight,", p1: "darkness", p2: "suffocating", model: "Armed only with a flashlight, he stepped into a darkness so thick it felt suffocating." },
+                { id: 'k3_19', stem: "Unless the code could be broken,", p1: "survival", p2: "impossible", model: "Unless the code could be broken within the hour, their survival in the locked vault would be impossible." },
+                { id: 'k3_20', stem: "Terrified by the sudden noise,", p1: "instinct", p2: "flight", model: "Terrified by the sudden noise, her first instinct was flight, urging her to run before she even saw the source." },
+
+                // Week 5
+                { id: 'k3_21', stem: "Framed by the window,", p1: "landscape", p2: "desolate", model: "Framed by the window, the winter landscape appeared desolate, stripped of all color and life." },
+                { id: 'k3_22', stem: "Instead of fleeing,", p1: "courage", p2: "unexpected", model: "Instead of fleeing from the beast, the knight showed a courage that was entirely unexpected given his size." },
+                { id: 'k3_23', stem: "Judging by the footprints,", p1: "intruder", p2: "heavy", model: "Judging by the footprints left in the mud, the intruder was carrying something exceptionally heavy." },
+                { id: 'k3_24', stem: "Moments after the explosion,", p1: "chaos", p2: "deafening", model: "Moments after the explosion, absolute chaos erupted, accompanied by a deafening ringing in everyone's ears." },
+                { id: 'k3_25', stem: "Whatever lay in the box,", p1: "power", p2: "ancient", model: "Whatever lay in the box, it radiated a power that felt ancient and older than the earth itself." },
+                
+                // Week 6
+                { id: 'k3_26', stem: "Having lost all hope,", p1: "miracle", p2: "horizon", model: "Having lost all hope of rescue, the sailors suddenly spotted what looked like a miracle on the horizon." },
+                { id: 'k3_27', stem: "Wherever the path led,", p1: "determination", p2: "blind", model: "Wherever the path led, he followed it with a blind determination, ignoring the thorns tearing at his clothes." },
+                { id: 'k3_28', stem: "Carefully concealing the letter,", p1: "betrayal", p2: "trust", model: "Carefully concealing the letter in his jacket, he committed a betrayal that would forever break his brother's trust." },
+                { id: 'k3_29', stem: "Exhausted from the journey,", p1: "relief", p2: "temporary", model: "Exhausted from the journey, the travelers found a cave, though they knew their relief would be only temporary." },
+                { id: 'k3_30', stem: "Amongst the ruins,", p1: "beauty", p2: "fragile", model: "Amongst the ruins of the cathedral, a single flower bloomed, offering a fragile beauty amidst the destruction." },
+
+                // Week 7
+                { id: 'k3_31', stem: "Cloaked in invisibility,", p1: "advantage", p2: "tactical", model: "Cloaked in invisibility, the spy moved with a tactical advantage that made her virtually unstoppable." },
+                { id: 'k3_32', stem: "Surrounded by enemies,", p1: "resolve", p2: "hardened", model: "Surrounded by enemies on all sides, his resolve hardened into a cold determination to survive." },
+                { id: 'k3_33', stem: "Whenever the wind howled,", p1: "reminded", p2: "loss", model: "Whenever the wind howled through the eaves, she was reminded of the terrible loss she had suffered that winter." },
+                { id: 'k3_34', stem: "Before the sun could rise,", p1: "escape", p2: "imperative", model: "Before the sun could rise and reveal their position, their escape from the compound became imperative." },
+                { id: 'k3_35', stem: "Hidden beneath the floorboards,", p1: "treasure", p2: "cursed", model: "Hidden beneath the floorboards lay a treasure that villagers whispered was cursed by a pirate king." },
+
+                // Week 8
+                { id: 'k3_36', stem: "Suspended in mid-air,", p1: "gravity", p2: "defying", model: "Suspended in mid-air, the acrobat performed a gravity-defying stunt that left the audience breathless." },
+                { id: 'k3_37', stem: "Without a sound,", p1: "predator", p2: "stalked", model: "Without a sound, the predator stalked its prey through the tall grass, waiting for the perfect moment." },
+                { id: 'k3_38', stem: "Drifting through space,", p1: "solitude", p2: "infinite", model: "Drifting through space, the astronaut felt the weight of an infinite solitude pressing against his helmet." },
+                { id: 'k3_39', stem: "Carved into the rock,", p1: "warning", p2: "ancient", model: "Carved into the rock face was an ancient warning to all who dared to enter the valley." },
+                { id: 'k3_40', stem: "Blinded by the light,", p1: "vision", p2: "blurred", model: "Blinded by the sudden light, my vision blurred, leaving me disoriented and vulnerable." },
+
+                // Week 9
+                { id: 'k3_41', stem: "Echoing through the cavern,", p1: "voice", p2: "hollow", model: "Echoing through the cavern, a hollow voice called out, chilling the explorers to the bone." },
+                { id: 'k3_42', stem: "Given the circumstances,", p1: "choice", p2: "difficult", model: "Given the circumstances of the storm, the captain made the difficult choice to turn the ship around." },
+                { id: 'k3_43', stem: "Scanning the horizon,", p1: "threat", p2: "approaching", model: "Scanning the horizon with binoculars, the guard spotted a threat rapidly approaching the gates." },
+                { id: 'k3_44', stem: "Locked inside the tower,", p1: "freedom", p2: "distant", model: "Locked inside the tower, freedom seemed like a distant dream she would never grasp again." },
+                { id: 'k3_45', stem: "Beneath the mask,", p1: "identity", p2: "hidden", model: "Beneath the mask, his true identity remained hidden, allowing him to walk among his enemies unnoticed." },
+
+                // Week 10
+                { id: 'k3_46', stem: "Trembling with fear,", p1: "voice", p2: "barely", model: "Trembling with fear, her voice was barely a whisper as she recounted the events of the night." },
+                { id: 'k3_47', stem: "Sailing into the storm,", p1: "bravery", p2: "reckless", model: "Sailing into the storm was an act of reckless bravery that few would dare to attempt." },
+                { id: 'k3_48', stem: "Behind the waterfall,", p1: "cave", p2: "secret", model: "Behind the waterfall lay a secret cave where the rebels had stored their supplies." },
+                { id: 'k3_49', stem: "Watching from the shadows,", p1: "observer", p2: "silent", model: "Watching from the shadows, the silent observer recorded every move the conspirators made." },
+                { id: 'k3_50', stem: "Despite his injuries,", p1: "finish", p2: "determined", model: "Despite his injuries, the runner was determined to finish the race, even if he had to crawl." },
+
+                // Week 11
+                { id: 'k3_51', stem: "Plunging into the darkness,", p1: "unknown", p2: "embrace", model: "Plunging into the darkness, I decided to embrace the unknown rather than fear what I could not see." },
+                { id: 'k3_52', stem: "Against all odds,", p1: "victory", p2: "sweet", model: "Against all odds, the underdogs secured a victory that tasted sweet after years of defeat." },
+                { id: 'k3_53', stem: "Hovering above the ground,", p1: "drone", p2: "surveillance", model: "Hovering above the ground, the surveillance drone watched the crowd with its unblinking mechanical eye." },
+                { id: 'k3_54', stem: "After the rain stopped,", p1: "scent", p2: "petrichor", model: "After the rain stopped, the scent of petrichor rose from the pavement, signaling the end of the storm." },
+                { id: 'k3_55', stem: "Shielded by the mountains,", p1: "village", p2: "isolated", model: "Shielded by the mountains, the village remained isolated from the wars that ravaged the rest of the country." },
+
+                // Week 12
+                { id: 'k3_56', stem: "Following the trail of smoke,", p1: "wreckage", p2: "smoldering", model: "Following the trail of smoke, the rescue team finally located the smoldering wreckage of the plane." },
+                { id: 'k3_57', stem: "Captured by the enemy,", p1: "loyalty", p2: "tested", model: "Captured by the enemy, his loyalty to the crown was tested under hours of intense interrogation." },
+                { id: 'k3_58', stem: "Within the ancient tome,", p1: "spell", p2: "forbidden", model: "Within the ancient tome, she found a forbidden spell that promised power at a terrible cost." },
+                { id: 'k3_59', stem: "Crossing the desert,", p1: "thirst", p2: "hallucination", model: "Crossing the desert, his thirst became so intense that he began to suffer from a vivid hallucination of water." },
+                { id: 'k3_60', stem: "Sensing a presence,", p1: "chill", p2: "spine", model: "Sensing a presence in the empty room, a cold chill ran down her spine." },
+
+                // Week 13
+                { id: 'k3_61', stem: "Dangling from the cliff,", p1: "grip", p2: "slipping", model: "Dangling from the cliff, he felt his grip slipping on the wet rock as the wind buffeted him." },
+                { id: 'k3_62', stem: "Igniting the fuse,", p1: "explosion", p2: "imminent", model: "Igniting the fuse, he ran for cover, knowing the explosion was imminent and inescapable." },
+                { id: 'k3_63', stem: "Wandering through the maze,", p1: "confusion", p2: "growing", model: "Wandering through the maze, her confusion was growing with every wrong turn she took." },
+                { id: 'k3_64', stem: "Beneath the starry sky,", p1: "universe", p2: "vast", model: "Beneath the starry sky, he felt small against the vast and indifferent universe stretching above him." },
+                { id: 'k3_65', stem: "Guarded by a dragon,", p1: "gold", p2: "shimmering", model: "Guarded by a dragon, the shimmering gold lay untouched for centuries in the heart of the mountain." },
+
+                // Week 14
+                { id: 'k3_66', stem: "Escaping the facility,", p1: "alarm", p2: "blaring", model: "Escaping the facility, she sprinted down the hall with the alarm blaring in her ears." },
+                { id: 'k3_67', stem: "Through the telescope,", p1: "planet", p2: "distant", model: "Through the telescope, the distant planet appeared as a small blue dot against the black void." },
+                { id: 'k3_68', stem: "Beside the roaring fire,", p1: "warmth", p2: "comfort", model: "Beside the roaring fire, the travelers finally found warmth and comfort after days in the snow." },
+                { id: 'k3_69', stem: "Under the watchful eye,", p1: "mistake", p2: "fatal", model: "Under the watchful eye of the instructor, making a mistake on the driving course could be fatal to his passing grade." },
+                { id: 'k3_70', stem: "Reaching for the stars,", p1: "dream", p2: "ambitious", model: "Reaching for the stars, her dream of becoming an astronaut seemed ambitious but not impossible." },
+
+                // Week 15
+                { id: 'k3_71', stem: "Surviving the crash,", p1: "lucky", p2: "alive", model: "Surviving the crash, he knew he was lucky to be alive when he saw the twisted metal." },
+                { id: 'k3_72', stem: "Adorned with jewels,", p1: "crown", p2: "heavy", model: "Adorned with jewels, the crown was heavy, symbolizing the burden of ruling a kingdom." },
+                { id: 'k3_73', stem: "Creeping through the underbrush,", p1: "stealth", p2: "silent", model: "Creeping through the underbrush, the tiger moved with silent stealth toward the unsuspecting deer." },
+                { id: 'k3_74', stem: "Beyond the horizon,", p1: "adventure", p2: "waiting", model: "Beyond the horizon, a new adventure was waiting for those brave enough to sail into the unknown." },
+                { id: 'k3_75', stem: "Amidst the celebration,", p1: "stranger", p2: "mysterious", model: "Amidst the celebration, a mysterious stranger watched from the corner, unsmiling and alert." },
+
+                // Week 16
+                { id: 'k3_76', stem: "Fearing the worst,", p1: "news", p2: "devastating", model: "Fearing the worst, she answered the phone, only to hear the devastating news she had dreaded." },
+                { id: 'k3_77', stem: "Constructed of steel,", p1: "fortress", p2: "impenetrable", model: "Constructed of steel and concrete, the fortress was designed to be impenetrable to any army." },
+                { id: 'k3_78', stem: "Lost in the crowd,", p1: "face", p2: "familiar", model: "Lost in the crowd, he desperately scanned for a familiar face to help him navigate the city." },
+                { id: 'k3_79', stem: "Considering the options,", p1: "risk", p2: "worth", model: "Considering the options, he decided the risk was worth the potential reward of the mission." },
+                { id: 'k3_80', stem: "Driven by hunger,", p1: "wolf", p2: "desperate", model: "Driven by hunger, the wolf became desperate enough to approach the outskirts of the village." },
+
+                // Week 17
+                { id: 'k3_81', stem: "Reflecting on the past,", p1: "mistakes", p2: "learned", model: "Reflecting on the past, she realized that her mistakes were lessons she had learned the hard way." },
+                { id: 'k3_82', stem: "Overcoming the obstacle,", p1: "strength", p2: "inner", model: "Overcoming the obstacle required an inner strength he didn't know he possessed until that moment." },
+                { id: 'k3_83', stem: "Searching for answers,", p1: "library", p2: "ancient", model: "Searching for answers, the scholar spent weeks in the ancient library deciphering old scrolls." },
+                { id: 'k3_84', stem: "Waiting for the signal,", p1: "tension", p2: "unbearable", model: "Waiting for the signal to attack, the tension in the trenches became almost unbearable." },
+                { id: 'k3_85', stem: "Wearing a disguise,", p1: "unnoticed", p2: "slipped", model: "Wearing a disguise, the thief slipped unnoticed past the guards at the museum entrance." },
+
+                // Week 18
+                { id: 'k3_86', stem: "Controlling the elements,", p1: "wizard", p2: "powerful", model: "Controlling the elements, the powerful wizard summoned a storm to drive back the invading army." },
+                { id: 'k3_87', stem: "Without a map,", p1: "direction", p2: "lost", model: "Without a map, they soon lost all sense of direction in the dense and shifting jungle." },
+                { id: 'k3_88', stem: "Hearing the siren,", p1: "warning", p2: "tornado", model: "Hearing the siren, the town recognized the warning of an approaching tornado and sought shelter." },
+                { id: 'k3_89', stem: "Balancing on the wire,", p1: "focus", p2: "absolute", model: "Balancing on the wire, his focus was absolute, blocking out the cheers of the crowd below." },
+                { id: 'k3_90', stem: "Protected by the shield,", p1: "blow", p2: "deflected", model: "Protected by the shield, the knight deflected the heavy blow of the enemy's axe." },
+
+                // Week 19
+                { id: 'k3_91', stem: "Following the river,", p1: "sea", p2: "eventually", model: "Following the river downstream, they knew they would eventually reach the open sea." },
+                { id: 'k3_92', stem: "Inside the laboratory,", p1: "experiment", p2: "dangerous", model: "Inside the laboratory, the scientist conducted a dangerous experiment that could change the world." },
+                { id: 'k3_93', stem: "During the eclipse,", p1: "darkness", p2: "unnatural", model: "During the eclipse, an unnatural darkness fell over the land, silencing the birds in the trees." },
+                { id: 'k3_94', stem: "Solving the puzzle,", p1: "door", p2: "opened", model: "Solving the puzzle, the stone door slowly opened to reveal the treasure chamber within." },
+                { id: 'k3_95', stem: "Running out of time,", p1: "decision", p2: "quick", model: "Running out of time, she had to make a quick decision that would determine the fate of the mission." },
+
+                // Week 20
+                { id: 'k3_96', stem: "Beneath the bridge,", p1: "troll", p2: "waiting", model: "Beneath the bridge, a troll was waiting to demand a toll from anyone who wished to cross." },
+                { id: 'k3_97', stem: "Ignoring the pain,", p1: "climb", p2: "continued", model: "Ignoring the pain in his ankle, he continued the climb toward the summit of the mountain." },
+                { id: 'k3_98', stem: "Amidst the silence,", p1: "whisper", p2: "heard", model: "Amidst the silence of the library, a faint whisper could be heard coming from the restricted section." },
+                { id: 'k3_99', stem: "Viewing the painting,", p1: "emotion", p2: "stirred", model: "Viewing the painting, a deep emotion stirred within him, reminding him of his childhood home." },
+                { id: 'k3_100', stem: "Approaching the finish line,", p1: "energy", p2: "burst", model: "Approaching the finish line, she found a final burst of energy to overtake the leader." }
+            ];
+
+            // KS4 (Years 10-12): Focus on Analysis, Rhetoric, Essays, Advanced Narrative
+            const ks4Data = [
+                // Week 1
+                { id: 'k4_1', stem: "Portrayed as a victim of society,", p1: "inevitability", p2: "tragic", model: "Portrayed as a victim of society, the protagonist's downfall is depicted not as a choice, but as a tragic inevitability." },
+                { id: 'k4_2', stem: "Arguably, the writer employs,", p1: "metaphor", p2: "emphasize", model: "Arguably, the writer employs this extended metaphor to emphasize the fragility of the human condition." },
+                { id: 'k4_3', stem: "Juxtaposed against the serene setting,", p1: "violence", p2: "brutal", model: "Juxtaposed against the serene setting of the garden, the brutal violence of the murder creates a jarring disconnect." },
+                { id: 'k4_4', stem: "Driven by an insatiable ambition,", p1: "morality", p2: "decay", model: "Driven by an insatiable ambition, Macbeth allows his morality to decay until he is unrecognizable." },
+                { id: 'k4_5', stem: "Ironically, the protagonist believes,", p1: "delusion", p2: "reality", model: "Ironically, the protagonist believes he is the savior, a delusion that blinds him to the harsh reality of his actions." },
+
+                // Week 2
+                { id: 'k4_6', stem: "Establishing a tone of despair,", p1: "imagery", p2: "bleak", model: "Establishing a tone of despair, the author uses bleak imagery of gray skies and withering crops." },
+                { id: 'k4_7', stem: "Haunted by the ghosts of the past,", p1: "guilt", p2: "manifests", model: "Haunted by the ghosts of the past, his guilt manifests as physical sickness whenever the topic is raised." },
+                { id: 'k4_8', stem: "Fundamentally, this scene reveals,", p1: "conflict", p2: "internal", model: "Fundamentally, this scene reveals the internal conflict raging between her duty to family and her desire for freedom." },
+                { id: 'k4_9', stem: "By stripping away the character's dignity,", p1: "vulnerability", p2: "exposed", model: "By stripping away the character's dignity, the playwright ensures their raw vulnerability is exposed to the audience." },
+                { id: 'k4_10', stem: "Whether viewed as a villain or hero,", p1: "ambiguity", p2: "intentional", model: "Whether viewed as a villain or hero, the character's moral ambiguity is clearly intentional on the part of the writer." },
+
+                // Week 3
+                { id: 'k4_11', stem: "Considering the historical context,", p1: "perspective", p2: "modern", model: "Considering the historical context, the play offers a perspective that may seem alien to a modern audience." },
+                { id: 'k4_12', stem: "Symbolizing the corruption of power,", p1: "motif", p2: "recurring", model: "Symbolizing the corruption of power, the recurring motif of blood stains the hands of every major character." },
+                { id: 'k4_13', stem: "Unlike the traditional archetype,", p1: "subverts", p2: "expectation", model: "Unlike the traditional archetype of the damsel, this character subverts the audience's expectation by saving herself." },
+                { id: 'k4_14', stem: "Through the use of dramatic irony,", p1: "audience", p2: "knowledge", model: "Through the use of dramatic irony, the audience is burdened with knowledge that the characters are blissfully unaware of." },
+                { id: 'k4_15', stem: "Despite the initial appearance of order,", p1: "chaos", p2: "underlying", model: "Despite the initial appearance of order in the society, an underlying chaos threatens to erupt at any moment." },
+
+                // Week 4
+                { id: 'k4_16', stem: "Highlighting the disparity between classes,", p1: "social", p2: "critique", model: "Highlighting the disparity between classes, the novel serves as a scathing social critique of Victorian industrialism." },
+                { id: 'k4_17', stem: "Mirroring the character's mental state,", p1: "pathetic fallacy", p2: "turbulent", model: "Mirroring the character's mental state, the storm is used as pathetic fallacy to reflect his turbulent emotions." },
+                { id: 'k4_18', stem: "Perhaps implying a deeper meaning,", p1: "interpretation", p2: "subjective", model: "Perhaps implying a deeper meaning about existence, this passage leaves the interpretation entirely subjective." },
+                { id: 'k4_19', stem: "Epitomizing the concept of hubris,", p1: "downfall", p2: "fated", model: "Epitomizing the concept of hubris, the king's refusal to listen leads to a downfall that feels fated from the start." },
+                { id: 'k4_20', stem: "Given the manipulative nature of,", p1: "influence", p2: "toxic", model: "Given the manipulative nature of Iago, his influence over Othello becomes increasingly toxic and destructive." },
+
+                // Week 5
+                { id: 'k4_21', stem: "Ultimately, the ending suggests,", p1: "resolution", p2: "ambiguous", model: "Ultimately, the ending suggests that peace is possible, though the final resolution remains hauntingly ambiguous." },
+                { id: 'k4_22', stem: "Reinforcing the theme of isolation,", p1: "setting", p2: "claustrophobic", model: "Reinforcing the theme of isolation, the setting of the island feels increasingly claustrophobic as the plot advances." },
+                { id: 'k4_23', stem: "By utilizing a cyclical structure,", p1: "fate", p2: "inescapable", model: "By utilizing a cyclical structure, the narrative implies that the characters' fate is inescapable." },
+                { id: 'k4_24', stem: "Contrasting sharply with,", p1: "dichotomy", p2: "light/dark", model: "Contrasting sharply with the earlier scenes of joy, this chapter establishes a dichotomy of light and dark." },
+                { id: 'k4_25', stem: "Assuming the persona of,", p1: "voice", p2: "authoritative", model: "Assuming the persona of a detached observer, the narrator adopts an authoritative voice to describe the catastrophe." },
+
+                // Week 6
+                { id: 'k4_26', stem: "Far from being a simple villain,", p1: "complexity", p2: "psychological", model: "Far from being a simple villain, the antagonist demonstrates a psychological complexity that evokes sympathy." },
+                { id: 'k4_27', stem: "Illustrating the futility of war,", p1: "futility", p2: "loss", model: "Illustrating the futility of war, the poem focuses not on glory, but on the profound loss of innocence." },
+                { id: 'k4_28', stem: "Whenever the supernatural occurs,", p1: "tension", p2: "heightens", model: "Whenever the supernatural occurs in the text, the narrative tension heightens, keeping the reader on edge." },
+                { id: 'k4_29', stem: "Discarding all sense of propriety,", p1: "rebellion", p2: "norms", model: "Discarding all sense of propriety, she stages a rebellion against the restrictive norms of her society." },
+                { id: 'k4_30', stem: "Embedded within the dialogue,", p1: "subtext", p2: "revealing", model: "Embedded within the mundane dialogue is a subtext revealing the true animosity between the sisters." },
+
+                // Week 7
+                { id: 'k4_31', stem: "Critiquing the patriarchal structure,", p1: "agency", p2: "denied", model: "Critiquing the patriarchal structure of the time, the novel explores how female agency was systematically denied." },
+                { id: 'k4_32', stem: "Functioning as a foil,", p1: "contrast", p2: "highlight", model: "Functioning as a foil to the protagonist, this character's caution serves to highlight the hero's recklessness." },
+                { id: 'k4_33', stem: "By shifting the narrative perspective,", p1: "bias", p2: "unreliable", model: "By shifting the narrative perspective, the author exposes the bias of the narrator, rendering them unreliable." },
+                { id: 'k4_34', stem: "Alluding to biblical mythology,", p1: "parallels", p2: "sacrifice", model: "Alluding to biblical mythology, the story draws clear parallels between the character's journey and the concept of sacrifice." },
+                { id: 'k4_35', stem: "Undermining the reader's trust,", p1: "contradiction", p2: "deliberate", model: "Undermining the reader's trust, the text contains a deliberate contradiction that forces us to question the truth." },
+
+                // Week 8
+                { id: 'k4_36', stem: "Exemplifying the Gothic genre,", p1: "atmosphere", p2: "oppressive", model: "Exemplifying the Gothic genre, the setting creates an oppressive atmosphere filled with decay and dread." },
+                { id: 'k4_37', stem: "Challenging contemporary values,", p1: "controversial", p2: "stance", model: "Challenging contemporary values, the essay adopts a controversial stance on the necessity of censorship." },
+                { id: 'k4_38', stem: "Depicting nature as indifferent,", p1: "sublime", p2: "insignificance", model: "Depicting nature as indifferent to human suffering, the poet invokes the sublime to show our insignificance." },
+                { id: 'k4_39', stem: "Through the repetition of,", p1: "emphasis", p2: "cumulative", model: "Through the repetition of the phrase, the writer builds a cumulative emphasis that becomes impossible to ignore." },
+                { id: 'k4_40', stem: "Despite the protagonist's flaws,", p1: "redemption", p2: "possibility", model: "Despite the protagonist's flaws, the narrative leaves open the possibility of redemption in the final act." },
+
+                // Week 9
+                { id: 'k4_41', stem: "Serving as a catalyst,", p1: "events", p2: "chain", model: "Serving as a catalyst for the tragedy, this minor decision sets off an irreversible chain of events." },
+                { id: 'k4_42', stem: "Exploring the duality of man,", p1: "nature", p2: "divided", model: "Exploring the duality of man, the story suggests our nature is permanently divided between good and evil." },
+                { id: 'k4_43', stem: "Implicit in this description,", p1: "attitude", p2: "cynical", model: "Implicit in this description is the author's cynical attitude towards political ambition." },
+                { id: 'k4_44', stem: "Conveying a sense of nostalgia,", p1: "tone", p2: "melancholic", model: "Conveying a sense of nostalgia, the tone becomes melancholic as the character recalls their youth." },
+                { id: 'k4_45', stem: "Rather than resolving the conflict,", p1: "tension", p2: "lingers", model: "Rather than resolving the conflict, the ending ensures the tension lingers long after the final page." },
+
+                // Week 10
+                { id: 'k4_46', stem: "Utilizing sensory language,", p1: "immersion", p2: "visceral", model: "Utilizing sensory language, the description creates a visceral immersion that sickens the reader." },
+                { id: 'k4_47', stem: "Questioning the validity of,", p1: "truth", p2: "objective", model: "Questioning the validity of history, the play argues that objective truth is an illusion." },
+                { id: 'k4_48', stem: "Personifying the environment,", p1: "hostile", p2: "intent", model: "Personifying the environment, the author attributes a hostile intent to the storm itself." },
+                { id: 'k4_49', stem: "Adopting a satirical lens,", p1: "ridicule", p2: "institution", model: "Adopting a satirical lens, the writer seeks to ridicule the institution of marriage in the 19th century." },
+                { id: 'k4_50', stem: "Simultaneously repelling and attracting,", p1: "grotesque", p2: "fascination", model: "Simultaneously repelling and attracting the reader, the grotesque character invites a morbid fascination." },
+
+                // Week 11
+                { id: 'k4_51', stem: "Foreshadowing the tragic conclusion,", p1: "clue", p2: "subtle", model: "Foreshadowing the tragic conclusion, this subtle clue alerts the attentive reader to the impending doom." },
+                { id: 'k4_52', stem: "Exposing the hypocrisy of,", p1: "society", p2: "elite", model: "Exposing the hypocrisy of the elite society, the author reveals the rot beneath the gilded surface." },
+                { id: 'k4_53', stem: "Characterized by inaction,", p1: "Hamlet", p2: "delay", model: "Characterized by inaction, Hamlet's constant delay in seeking revenge becomes his tragic flaw." },
+                { id: 'k4_54', stem: "Elevating the mundane,", p1: "language", p2: "poetic", model: "Elevating the mundane aspects of daily life, the writer uses poetic language to find beauty in the ordinary." },
+                { id: 'k4_55', stem: "Creating a sense of unease,", p1: "rhythm", p2: "broken", model: "Creating a sense of unease, the poet employs a broken rhythm to disturb the natural flow of the verse." },
+
+                // Week 12
+                { id: 'k4_56', stem: "Drawing a parallel between,", p1: "nature", p2: "emotion", model: "Drawing a parallel between the wild storm and his rage, the author links nature directly to human emotion." },
+                { id: 'k4_57', stem: "Substantiating the claim,", p1: "evidence", p2: "textual", model: "Substantiating the claim that the hero is flawed, textual evidence from the first chapter reveals his arrogance." },
+                { id: 'k4_58', stem: "Manipulating the reader's sympathy,", p1: "perspective", p2: "biased", model: "Manipulating the reader's sympathy, the narrative uses a biased perspective to excuse the protagonist's crimes." },
+                { id: 'k4_59', stem: "Signifying a loss of innocence,", p1: "symbol", p2: "decaying", model: "Signifying a loss of innocence, the decaying garden serves as a potent symbol of the children's corruption." },
+                { id: 'k4_60', stem: "Inverting the power dynamic,", p1: "servant", p2: "master", model: "Inverting the power dynamic, the servant begins to control the master through subtle manipulation." },
+
+                // Week 13
+                { id: 'k4_61', stem: "Punctuated by short sentences,", p1: "pace", p2: "accelerates", model: "Punctuated by short sentences, the pace accelerates rapidly to mimic the frantic heartbeat of the character." },
+                { id: 'k4_62', stem: "Eroding the boundary between,", p1: "fantasy", p2: "reality", model: "Eroding the boundary between fantasy and reality, the narrator leaves us questioning what truly happened." },
+                { id: 'k4_63', stem: "Amplifying the dramatic tension,", p1: "silence", p2: "prolonged", model: "Amplifying the dramatic tension, a prolonged silence falls over the stage before the final revelation." },
+                { id: 'k4_64', stem: "Validating the critic's view,", p1: "interpretation", p2: "Marxist", model: "Validating the critic's view, a Marxist interpretation of the text highlights the struggle between the laborers and owners." },
+                { id: 'k4_65', stem: "Underscoring the theme of,", p1: "betrayal", p2: "filial", model: "Underscoring the theme of betrayal, the son's refusal to help his father is a breach of filial duty." },
+
+                // Week 14
+                { id: 'k4_66', stem: "Invoking a sense of,", p1: "dread", p2: "palpable", model: "Invoking a sense of palpable dread, the description of the fog obscures all safe paths forward." },
+                { id: 'k4_67', stem: "Deconstructing the myth of,", p1: "heroism", p2: "glory", model: "Deconstructing the myth of heroism, the poem reveals that there is no glory in the slaughter of war." },
+                { id: 'k4_68', stem: "Employing a circular narrative,", p1: "return", p2: "beginning", model: "Employing a circular narrative, the story ends exactly where it began, suggesting no progress was made." },
+                { id: 'k4_69', stem: "Contradicting her earlier statement,", p1: "reliability", p2: "question", model: "Contradicting her earlier statement, this confession brings her reliability as a witness into serious question." },
+                { id: 'k4_70', stem: "Manifesting as a symbol of,", p1: "hope", p2: "fragile", model: "Manifesting as a symbol of fragile hope, the candle flickers but does not go out in the wind." },
+
+                // Week 15
+                { id: 'k4_71', stem: "Regarding the social context,", p1: "expectations", p2: "rigid", model: "Regarding the social context, the characters are trapped by the rigid expectations of Victorian etiquette." },
+                { id: 'k4_72', stem: "Juxtaposing light and dark,", p1: "duality", p2: "moral", model: "Juxtaposing light and dark imagery, the writer explores the moral duality present in every human soul." },
+                { id: 'k4_73', stem: "Deviating from the norm,", p1: "structure", p2: "fragmented", model: "Deviating from the norm, the fragmented structure of the novel mirrors the protagonist's shattered memory." },
+                { id: 'k4_74', stem: "Embodying the archetype of,", p1: "trickster", p2: "disrupt", model: "Embodying the archetype of the trickster, the character exists to disrupt the established order of the court." },
+                { id: 'k4_75', stem: "Allegorizing the political climate,", p1: "animals", p2: "leaders", model: "Allegorizing the political climate, the farm animals represent various leaders of the revolution." },
+
+                // Week 16
+                { id: 'k4_76', stem: "Intensifying the emotional impact,", p1: "hyperbole", p2: "extreme", model: "Intensifying the emotional impact, the author uses extreme hyperbole to describe the depth of her grief." },
+                { id: 'k4_77', stem: "Suggesting a psychological depth,", p1: "monologue", p2: "inner", model: "Suggesting a psychological depth, the inner monologue reveals fears the character never speaks aloud." },
+                { id: 'k4_78', stem: "Marking a turning point,", p1: "epiphany", p2: "realization", model: "Marking a turning point in the novel, this epiphany changes how the protagonist views his father." },
+                { id: 'k4_79', stem: "Framed as a cautionary tale,", p1: "ambition", p2: "unchecked", model: "Framed as a cautionary tale, the play warns against the dangers of unchecked ambition." },
+                { id: 'k4_80', stem: "Conforming to the conventions of,", p1: "tragedy", p2: "aristotelian", model: "Conforming to the conventions of Aristotelian tragedy, the hero falls from a high status due to a fatal flaw." },
+
+                // Week 17
+                { id: 'k4_81', stem: "Disrupting the linear flow,", p1: "flashback", p2: "past", model: "Disrupting the linear flow of time, the flashback transports the reader to the trauma of the past." },
+                { id: 'k4_82', stem: "Evoking a sense of,", p1: "melancholy", p2: "pervasive", model: "Evoking a sense of pervasive melancholy, the setting is described in muted colors and soft sounds." },
+                { id: 'k4_83', stem: "Challenging the audience's perception,", p1: "stereotype", p2: "reversed", model: "Challenging the audience's perception, the stereotype of the weak villain is reversed in the final act." },
+                { id: 'k4_84', stem: "Rooted in the tradition of,", p1: "romanticism", p2: "emotion", model: "Rooted in the tradition of Romanticism, the poem prioritizes intense emotion over rational thought." },
+                { id: 'k4_85', stem: "Mirroring the societal decay,", p1: "setting", p2: "urban", model: "Mirroring the societal decay, the urban setting is depicted as filthy, overcrowded, and dangerous." },
+
+                // Week 18
+                { id: 'k4_86', stem: "Rather than conform to stereotypes,", p1: "individual", p2: "unique", model: "Rather than conform to stereotypes, the author paints the character as a unique individual with contradictory traits." },
+                { id: 'k4_87', stem: "Utilizing a shift in tone,", p1: "mood", p2: "optimistic", model: "Utilizing a shift in tone, the mood becomes surprisingly optimistic in the final stanza." },
+                { id: 'k4_88', stem: "Implying a critique of,", p1: "materialism", p2: "hollow", model: "Implying a critique of the Jazz Age, the novel presents materialism as a hollow pursuit." },
+                { id: 'k4_89', stem: "Serving as a microcosm,", p1: "island", p2: "world", model: "Serving as a microcosm, the island represents the wider world and its political struggles." },
+                { id: 'k4_90', stem: "Establishing an antithesis,", p1: "love", p2: "hate", model: "Establishing an antithesis between love and hate, the poem explores how close these two emotions truly are." },
+
+                // Week 19
+                { id: 'k4_91', stem: "Accentuating the feeling of,", p1: "entrapment", p2: "cage", model: "Accentuating the feeling of entrapment, the imagery of the cage appears repeatedly throughout the chapter." },
+                { id: 'k4_92', stem: "Blurring the lines between,", p1: "good", p2: "evil", model: "Blurring the lines between good and evil, the antagonist's motives are shown to be disturbingly relatable." },
+                { id: 'k4_93', stem: "Calling attention to,", p1: "artifice", p2: "theatrical", model: "Calling attention to the theatrical nature of the play, the character breaks the fourth wall to address us." },
+                { id: 'k4_94', stem: "Resonating with the theme of,", p1: "justice", p2: "denied", model: "Resonating with the theme of justice denied, the trial scene ends in a verdict that outrages the audience." },
+                { id: 'k4_95', stem: "Employing oxymoron,", p1: "conflict", p2: "bittersweet", model: "Employing oxymoron, the phrase 'bittersweet victory' captures the conflict of winning at a great cost." },
+
+                // Week 20
+                { id: 'k4_96', stem: "Culminating in a moment of,", p1: "catharsis", p2: "release", model: "Culminating in a moment of catharsis, the final scene offers an emotional release for both character and audience." },
+                { id: 'k4_97', stem: "Echoing the sentiments of,", p1: "era", p2: "post-war", model: "Echoing the sentiments of the post-war era, the text is filled with disillusionment and existential dread." },
+                { id: 'k4_98', stem: "Positioning the reader to,", p1: "judge", p2: "harshly", model: "Positioning the reader to judge the character harshly, the narrator emphasizes his selfishness." },
+                { id: 'k4_99', stem: "Subverting the genre,", p1: "ending", p2: "unhappy", model: "Subverting the genre conventions, the story provides an unhappy ending where the mystery remains unsolved." },
+                { id: 'k4_100', stem: "Synthesizing these elements,", p1: "effect", p2: "powerful", model: "Synthesizing these elements of sound and sight, the writer creates a powerful effect of total immersion." }
+            ];
+
+            // Logic to get current set of 5
+            const itemsPerSet = 5;
+            const totalSets = Math.ceil(ks3Data.length / itemsPerSet); 
+
+            // Shuffle Logic
+            useEffect(() => {
+                // When shuffle is toggled on, generate random indices
+                if (isShuffled) {
+                    const indices = Array.from({ length: totalSets }, (_, i) => i);
+                    for (let i = indices.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [indices[i], indices[j]] = [indices[j], indices[i]];
+                    }
+                    setShuffledIndices(indices);
+                }
+            }, [isShuffled, totalSets]);
+            
+            const getPaginatedData = (data, index) => {
+                // If shuffled, use the shuffled index mapping, otherwise use standard index
+                const actualSetIndex = isShuffled ? shuffledIndices[index] : index;
+                // Fallback if shuffle index is undefined (rare race condition)
+                const safeIndex = actualSetIndex !== undefined ? actualSetIndex : index;
+                
+                const start = (safeIndex % totalSets) * itemsPerSet;
+                return data.slice(start, start + itemsPerSet);
+            };
+
+            const currentKS3 = getPaginatedData(ks3Data, setIndex);
+            const currentKS4 = getPaginatedData(ks4Data, setIndex);
+
+            const nextSet = () => {
+                setSetIndex((prev) => (prev + 1) % totalSets);
+            };
+
+            const prevSet = () => {
+                setSetIndex((prev) => (prev - 1 < 0 ? totalSets - 1 : prev - 1));
+            };
+
+            const toggleModel = (id) => {
+                setRevealedModels(prev => ({
+                    ...prev,
+                    [id]: !prev[id]
+                }));
+            };
+
+            // Reset revealed models when changing sets
+            useEffect(() => {
+                setRevealedModels({});
+            }, [setIndex]);
+
+            return (
+                <div className={`min-h-screen font-sans p-4 flex flex-col transition-colors duration-300 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
+                    {/* Header Section */}
+                    <div className="max-w-full w-full mx-auto mb-4 flex-shrink-0">
+                        <header className={`flex flex-col md:flex-row justify-between items-center p-4 rounded-xl shadow-sm border mb-4 transition-colors duration-300 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                            <div className="flex items-center gap-3 mb-4 md:mb-0">
+                                <div className={`p-2.5 rounded-lg ${darkMode ? 'bg-indigo-500' : 'bg-indigo-600'}`}>
+                                    <Icons.Brain className="text-white w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h1 className={`text-xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>Syntax Architect</h1>
+                                </div>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="flex flex-wrap justify-center md:justify-end gap-4 items-center">
+                                {/* Dark Mode Toggle */}
+                                <button
+                                    onClick={() => setDarkMode(!darkMode)}
+                                    className={`p-2 rounded-lg transition-colors ${darkMode ? 'bg-slate-800 text-yellow-400 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                    title="Toggle Dark Mode"
+                                >
+                                    {darkMode ? <Icons.Sun className="w-5 h-5" /> : <Icons.Moon className="w-5 h-5" />}
+                                </button>
+
+                                {/* Shuffle Toggle */}
+                                <button
+                                    onClick={() => {
+                                        setIsShuffled(!isShuffled);
+                                        setSetIndex(0); 
+                                    }}
+                                    className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${isShuffled 
+                                        ? (darkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-700') 
+                                        : (darkMode ? 'bg-slate-800 text-slate-500 hover:bg-slate-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+                                    }`}
+                                    title="Shuffle Sets"
+                                >
+                                    <Icons.Dices className="w-5 h-5" />
+                                </button>
+
+                                {/* Level Selector */}
+                                <div className={`flex items-center gap-3 p-1.5 rounded-lg ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Rigor Level</span>
+                                    <div className="flex gap-1">
+                                        {[1, 2, 3].map((l) => (
+                                            <button
+                                                key={l}
+                                                onClick={() => setLevel(l)}
+                                                className={`w-8 h-8 rounded-md font-bold text-sm transition-all duration-200 ${
+                                                    level === l 
+                                                        ? (darkMode ? 'bg-indigo-500 text-white shadow-sm' : 'bg-indigo-600 text-white shadow-sm')
+                                                        : (darkMode ? 'bg-slate-900 text-slate-400 hover:bg-slate-700' : 'bg-white text-slate-500 hover:bg-slate-200')
+                                                }`}
+                                            >
+                                                {l}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Set Navigation */}
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-sm font-semibold mr-2 whitespace-nowrap ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        Week {setIndex + 1} / {totalSets}
+                                    </span>
+                                    <button onClick={prevSet} className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}>
+                                        Previous
+                                    </button>
+                                    <button 
+                                        onClick={nextSet}
+                                        className={`flex items-center gap-2 px-3 py-1.5 text-white rounded-lg transition-all active:scale-95 font-medium text-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-slate-900 hover:bg-slate-800'}`}
+                                    >
+                                        <Icons.RefreshCw className="w-3.5 h-3.5" />
+                                        Next Week
+                                    </button>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Instructions */}
+                        <div className={`border rounded-lg p-3 mb-4 flex gap-3 text-sm items-center transition-colors ${darkMode ? 'bg-indigo-900/20 border-indigo-900/50 text-indigo-300' : 'bg-indigo-50 border-indigo-100 text-indigo-900'}`}>
+                            <Icons.Layers className="w-4 h-4 flex-shrink-0" />
+                            <p>
+                                {level === 1 && <span><strong>Level 1:</strong> Complete the sentence using the stem. Focus on high-quality vocabulary.</span>}
+                                {level === 2 && <span><strong>Level 2:</strong> Synthesize the <strong>stem</strong> and the <strong>mandatory phrase</strong> into one coherent sentence.</span>}
+                                {level === 3 && <span><strong>Level 3:</strong> Rigorous synthesis. Integrate the <strong>stem</strong> and <strong>both phrases</strong> naturally.</span>}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Main Grid */}
+                    <div className="flex-grow w-full max-w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        {/* Column 1: Y7-9 */}
+                        <section className={`rounded-xl shadow-sm border overflow-hidden h-full transition-colors ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                            <div className={`border-b p-3 flex items-center gap-2 ${darkMode ? 'bg-emerald-950/30 border-emerald-900/30' : 'bg-emerald-50 border-emerald-100'}`}>
+                                <Icons.PenTool className={`w-4 h-4 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                                <h2 className={`font-bold text-sm uppercase tracking-wide ${darkMode ? 'text-emerald-400' : 'text-emerald-900'}`}>Narrative & Descriptive</h2>
+                            </div>
+                            <div className="p-4 space-y-3">
+                                {currentKS3.map((item, idx) => (
+                                    <Card 
+                                        key={item.id} 
+                                        item={item} 
+                                        level={level} 
+                                        type="ks3" 
+                                        index={(setIndex * itemsPerSet) + idx + 1}
+                                        isRevealed={revealedModels[item.id]}
+                                        toggleModel={() => toggleModel(item.id)}
+                                        darkMode={darkMode}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Column 2: Y10-12 */}
+                        <section className={`rounded-xl shadow-sm border overflow-hidden h-full transition-colors ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                            <div className={`border-b p-3 flex items-center gap-2 ${darkMode ? 'bg-blue-950/30 border-blue-900/30' : 'bg-blue-50 border-blue-100'}`}>
+                                <Icons.GraduationCap className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                                <h2 className={`font-bold text-sm uppercase tracking-wide ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>Analytical</h2>
+                            </div>
+                            <div className="p-4 space-y-3">
+                                {currentKS4.map((item, idx) => (
+                                    <Card 
+                                        key={item.id} 
+                                        item={item} 
+                                        level={level} 
+                                        type="ks4" 
+                                        index={(setIndex * itemsPerSet) + idx + 1}
+                                        isRevealed={revealedModels[item.id]}
+                                        toggleModel={() => toggleModel(item.id)}
+                                        darkMode={darkMode}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+
+                    {/* Footer / Email Button */}
+                    <div className="mt-8 flex justify-center pb-4">
+                        <a 
+                            href="mailto:achievewriting@gmail.com"
+                            className={`flex items-center gap-2 px-6 py-3 font-bold rounded-full shadow-lg transition-all duration-300 ${darkMode ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'} hover:shadow-xl hover:scale-105`}
+                        >
+                            <Icons.Mail className="w-5 h-5" />
+                            EMAIL MR C
+                        </a>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SentenceArchitect />);
+    </script>
 </body>
 </html>
